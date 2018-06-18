@@ -13,7 +13,7 @@ using namespace std;
 struct Edge {
   enum Direct {
     Forward,
-    Backword
+    Backward
   };
 
   Edge(int e, int c, Direct d)
@@ -27,7 +27,7 @@ struct Edge {
 
 struct Vertex {
    list<Edge> forwardEdges;
-   list<Edge> backwordEdges;
+   list<Edge> backwardEdges;
 };
 
 class NetworkBuilder;
@@ -51,7 +51,7 @@ class Network {
           [j](const Edge& e) { return e.endVertexIndex == j; });
       if(iter != fEdges.end()) return *iter;
 
-      const auto& bEdges = _vertices[i].backwordEdges;
+      const auto& bEdges = _vertices[i].backwardEdges;
       iter = find_if(bEdges.begin(), bEdges.end(), 
           [j](const Edge& e) { return e.endVertexIndex == j; });
       if(iter != bEdges.end()) return *iter;
@@ -66,14 +66,14 @@ class Network {
           [j](const Edge& e) { return e.endVertexIndex == j; });
       if(iter != fEdges.end()) iter->flow += val;
 
-      auto& bEdges = _vertices[j].backwordEdges;
+      auto& bEdges = _vertices[j].backwardEdges;
       iter = find_if(bEdges.begin(), bEdges.end(), 
            [i](const Edge& e) { return e.endVertexIndex == i; });
       if(iter != bEdges.end()) iter->flow += val;
    }
 
-   void decrementBackwordFlow(int i, int j, int val) {
-     auto& bEdges = _vertices[i].backwordEdges;
+   void decrementBackwardFlow(int i, int j, int val) {
+     auto& bEdges = _vertices[i].backwardEdges;
      auto iter = find_if(bEdges.begin(), bEdges.end(), 
          [j](const Edge& e) { return e.endVertexIndex == j; });
      if(iter != bEdges.end()) iter->flow -= val;
@@ -90,7 +90,7 @@ class Network {
       for(const auto& edge : source.forwardEdges) {
          totalFlow += edge.flow;
       }
-      for(const auto& edge : source.backwordEdges) {
+      for(const auto& edge : source.backwardEdges) {
         totalFlow -= edge.flow;
       }
       return totalFlow;
@@ -113,7 +113,7 @@ class NetworkBuilder {
      NetworkBuilder& addEdge(int vertexIndex1, int vertexIndex2, int capacity) {
         auto& vertices = _network._vertices;
         vertices[vertexIndex1].forwardEdges.push_back(Edge(vertexIndex2, capacity, Edge::Forward));
-        vertices[vertexIndex2].backwordEdges.push_back(Edge(vertexIndex1, capacity, Edge::Backword));
+        vertices[vertexIndex2].backwardEdges.push_back(Edge(vertexIndex1, capacity, Edge::Backward));
      }
      
      void build(Network* nw) {
@@ -133,7 +133,7 @@ class NetworkFormatter {
           for(const auto& fe : vertex.forwardEdges) {
             ss << "[" << i << "] -> (" << fe.flow << "/" << fe.capacity << ") -> [" << fe.endVertexIndex << "]" << endl; 
           }
-          for(const auto& fe : vertex.backwordEdges) {
+          for(const auto& fe : vertex.backwardEdges) {
             ss << "[" << i << "] <- (" << fe.flow << "/" << fe.capacity << ") <- [" << fe.endVertexIndex << "]" << endl; 
           }
        }
@@ -183,7 +183,7 @@ private:
               }
            }
         }
-        for(auto& edge : v.backwordEdges) {
+        for(auto& edge : v.backwardEdges) {
            int end = edge.endVertexIndex;
            if(_visited[end]) {
               continue;
@@ -224,7 +224,7 @@ private:
         if(network->getEdge(prevIndex, curIndex).direct == Edge::Forward) {
           network->incrementForwardFlow(prevIndex, curIndex, rest); 
         } else {
-          network->decrementBackwordFlow(prevIndex, curIndex, rest); 
+          network->decrementBackwardFlow(prevIndex, curIndex, rest); 
         }
         if(prevIndex == network->sourceIndex()) {
             break;
