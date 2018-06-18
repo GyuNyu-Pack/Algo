@@ -1,0 +1,258 @@
+#include <algorithm>
+#include <deque>
+#include <exception>
+#include <iostream>
+#include <list>
+#include <limits>
+#include <sstream>
+#include <stack>
+#include <vector>
+
+using namespace std;
+
+struct Edge {
+  enum Direct {
+    Forward,
+    Backword
+  };
+
+  Edge(int e, int c, Direct d)
+    : endVertexIndex(e), flow(0), capacity(c), direct(d) {}
+
+  int capacity;  
+  int flow;
+  int endVertexIndex;
+  Direct direct;
+};
+
+struct Vertex {
+   list<Edge> forwardEdges;
+   list<Edge> backwordEdges;
+};
+
+class NetworkBuilder;
+class NetworkFormatter;
+
+class Network {
+  public: 
+     const Vertex& getVertex (int i) const {
+     return _vertices[i];
+    }
+
+    int sourceIndex() const { return 0;}
+
+    int sinkIndex() const { return (int)_vertices.size() - 1;}
+    
+    int vertSize() { return (int)_vertices.size(); }
+
+   const Edge& getEdge(int i, int j) const {
+      const auto& fEdges = _vertices[i].forwardEdges;
+      auto iter = find_if(fEdges.begin(), fEdges.end(), 
+          [j](const Edge& e) { return e.endVertexIndex == j; });
+      if(iter != fEdges.end()) return *iter;
+
+      const auto& bEdges = _vertices[i].backwordEdges;
+      iter = find_if(bEdges.begin(), bEdges.end(), 
+          [j](const Edge& e) { return e.endVertexIndex == j; });
+      if(iter != bEdges.end()) return *iter;
+      
+      throw out_of_range("edge is not found!");
+   }
+
+   void incrementForwardFlow(int i, int j, int val) {
+      
+      auto& fEdges = _vertices[i].forwardEdges;
+      auto iter = find_if(fEdges.begin(), fEdges.end(), 
+          [j](const Edge& e) { return e.endVertexIndex == j; });
+      if(iter != fEdges.end()) iter->flow += val;
+
+      auto& bEdges = _vertices[j].backwordEdges;
+      iter = find_if(bEdges.begin(), bEdges.end(), 
+           [i](const Edge& e) { return e.endVertexIndex == i; });
+      if(iter != bEdges.end()) iter->flow += val;
+   }
+
+   void decrementBackwordFlow(int i, int j, int val) {
+     auto& bEdges = _vertices[i].backwordEdges;
+     auto iter = find_if(bEdges.begin(), bEdges.end(), 
+         [j](const Edge& e) { return e.endVertexIndex == j; });
+     if(iter != bEdges.end()) iter->flow -= val;
+
+     auto&  fEdges = _vertices[j].forwardEdges;
+     iter = find_if(fEdges.begin(), fEdges.end(), 
+        [i](const Edge& e) { return e.endVertexIndex == i; });
+     if(iter != fEdges.end()) iter->flow -= val;
+   }
+
+   int totalFlow() const {
+      const Vertex& source = _vertices[0];
+      int totalFlow = 0;
+      for(const auto& edge : source.forwardEdges) {
+         totalFlow += edge.flow;
+      }
+      for(const auto& edge : source.backwordEdges) {
+        totalFlow -= edge.flow;
+      }
+      return totalFlow;
+   }
+    
+  private:
+
+    vector<Vertex> _vertices;
+     
+  friend NetworkBuilder;
+  friend NetworkFormatter;
+};
+
+class NetworkBuilder {
+   public:
+     NetworkBuilder(int vertexNum) {
+        _network._vertices.resize(vertexNum);
+     }
+
+     NetworkBuilder& addEdge(int vertexIndex1, int vertexIndex2, int capacity) {
+        auto& vertices = _network._vertices;
+        vertices[vertexIndex1].forwardEdges.push_back(Edge(vertexIndex2, capacity, Edge::Forward));
+        vertices[vertexIndex2].backwordEdges.push_back(Edge(vertexIndex1, capacity, Edge::Backword));
+     }
+     
+     void build(Network* nw) {
+        *nw = _network;
+     }
+
+   private:
+    Network _network;
+};
+
+class NetworkFormatter {
+  public:
+    static string format(Network& network) {
+       stringstream ss;
+       for(int i = 0; i < network._vertices.size(); i++) {
+          const Vertex& vertex = network.getVertex(i);
+          for(const auto& fe : vertex.forwardEdges) {
+            ss << "[" << i << "] -> (" << fe.flow << "/" << fe.capacity << ") -> [" << fe.endVertexIndex << "]" << endl; 
+          }
+          for(const auto& fe : vertex.backwordEdges) {
+            ss << "[" << i << "] <- (" << fe.flow << "/" << fe.capacity << ") <- [" << fe.endVertexIndex << "]" << endl; 
+          }
+       }
+       return ss.str();
+    }
+};
+
+class MaximumFlowSearcher {
+public:
+  int searchByFordFulkersonMethod(Network* network) {
+      _visited.resize(network->vertSize());
+      _argumentPath.resize(network->vertSize());
+      while(true) {
+        if(!findAugumentPath(*network)) {
+           break;
+        }
+        
+        updateFlow(network);
+        fill(_visited.begin(), _visited.end(), false);
+        fill(_argumentPath.begin(),_argumentPath.end(), -1);
+      }
+      
+      return network->totalFlow();
+  }
+
+private:
+
+  bool findAugumentPath(const Network& network) {
+     stack<int> path;
+     path.push(network.sourceIndex());
+     _visited[network.sourceIndex()] = true;
+     while(!path.empty()) { 
+        int curIndex = path.top();
+        const Vertex& v = network.getVertex(curIndex);
+        path.pop();
+        for(auto& edge : v.forwardEdges) {
+           int end = edge.endVertexIndex;
+           if(_visited[end]) {
+              continue;
+           }
+           if(edge.capacity - edge.flow > 0) {
+              path.push(end);
+              _visited[end] = true;
+              _argumentPath[end] = curIndex;
+              if(end == network.sinkIndex()) {
+                return true;
+              }
+           }
+        }
+        for(auto& edge : v.backwordEdges) {
+           int end = edge.endVertexIndex;
+           if(_visited[end]) {
+              continue;
+           }
+           if(edge.flow > 0) {
+              path.push(end);
+              _visited[end] = true;
+              _argumentPath[end] = curIndex;
+              if(end == network.sinkIndex()) {
+                return true;
+              }
+           }
+        }
+     }
+     return false;
+  }
+
+  void updateFlow(Network* network) {
+      int curIndex = network->sinkIndex();
+      int rest = numeric_limits<int>::max();
+      while(true) {
+        int prevIndex = _argumentPath[curIndex];
+        const Edge& edge = network->getEdge(prevIndex, curIndex);
+        if(edge.direct == Edge::Forward) {
+           rest = min(rest, edge.capacity - edge.flow);
+        } else {
+           rest = min(rest, edge.flow);
+        }
+        if(prevIndex == network->sourceIndex()) {
+            break;
+        }
+        curIndex = prevIndex;
+      }
+
+      curIndex = network->sinkIndex();
+      while(true) {
+        int prevIndex = _argumentPath[curIndex];
+        if(network->getEdge(prevIndex, curIndex).direct == Edge::Forward) {
+          network->incrementForwardFlow(prevIndex, curIndex, rest); 
+        } else {
+          network->decrementBackwordFlow(prevIndex, curIndex, rest); 
+        }
+        if(prevIndex == network->sourceIndex()) {
+            break;
+        }
+        curIndex = prevIndex;
+      }
+  }
+
+  vector<int> _argumentPath;
+  deque<bool> _visited;
+};
+
+int main() {
+  int  V, E;
+  cin >> V >> E;
+  NetworkBuilder builder(V);
+  for(int i = 0; i < E; i++) {
+     int n1, n2, capacity;
+     cin >> n1 >> n2 >> capacity;
+     builder.addEdge(n1, n2, capacity);
+  }
+
+  Network nw;
+  builder.build(&nw);
+  
+  int totalFlow = MaximumFlowSearcher().searchByFordFulkersonMethod(&nw);
+
+  cout << totalFlow << endl;
+
+  return 0;
+}
