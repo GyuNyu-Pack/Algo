@@ -145,7 +145,7 @@ class MaximumFlowSearcher {
 public:
   int searchByFordFulkersonMethod(Network* network) {
       _visited.resize(network->vertSize());
-      _argumentPath.resize(network->vertSize());
+      _augumentPath.resize(network->vertSize());
       while(true) {
         if(!findAugumentPath(*network)) {
            break;
@@ -153,7 +153,7 @@ public:
         
         updateFlow(network);
         fill(_visited.begin(), _visited.end(), false);
-        fill(_argumentPath.begin(),_argumentPath.end(), -1);
+        fill(_augumentPath.begin(),_augumentPath.end(), -1);
       }
       
       return network->totalFlow();
@@ -177,7 +177,7 @@ private:
            if(edge.capacity - edge.flow > 0) {
               path.push(end);
               _visited[end] = true;
-              _argumentPath[end] = curIndex;
+              _augumentPath[end] = curIndex;
               if(end == network.sinkIndex()) {
                 return true;
               }
@@ -191,7 +191,7 @@ private:
            if(edge.flow > 0) {
               path.push(end);
               _visited[end] = true;
-              _argumentPath[end] = curIndex;
+              _augumentPath[end] = curIndex;
               if(end == network.sinkIndex()) {
                 return true;
               }
@@ -205,7 +205,7 @@ private:
       int curIndex = network->sinkIndex();
       int rest = numeric_limits<int>::max();
       while(true) {
-        int prevIndex = _argumentPath[curIndex];
+        int prevIndex = _augumentPath[curIndex];
         const Edge& edge = network->getEdge(prevIndex, curIndex);
         if(edge.direct == Edge::Forward) {
            rest = min(rest, edge.capacity - edge.flow);
@@ -220,7 +220,7 @@ private:
 
       curIndex = network->sinkIndex();
       while(true) {
-        int prevIndex = _argumentPath[curIndex];
+        int prevIndex = _augumentPath[curIndex];
         if(network->getEdge(prevIndex, curIndex).direct == Edge::Forward) {
           network->incrementForwardFlow(prevIndex, curIndex, rest); 
         } else {
@@ -233,7 +233,7 @@ private:
       }
   }
 
-  vector<int> _argumentPath;
+  vector<int> _augumentPath;
   deque<bool> _visited;
 };
 
